@@ -73,6 +73,13 @@ public class Main extends Application {
         }
     }
 
+    /**
+     * 获取二维码
+     *
+     * @return void
+     * @author XanderYe
+     * @date 2020-03-14
+     */
     private Map<String, String> getQrCode() {
         Map<String, String> qrCode = new HashMap<>();
         String t = Double.toString(Math.random());
