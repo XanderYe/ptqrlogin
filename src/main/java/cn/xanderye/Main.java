@@ -143,6 +143,7 @@ public class Main extends Application {
 
     /**
      * 登录监听
+     *
      * @param imageView
      * @return boolean
      * @author XanderYe
@@ -155,16 +156,18 @@ public class Main extends Application {
         Map<String, Object> cookies = new HashMap<>();
         cookies.put("qrsig", qrsig);
         String result = HttpUtil.doPostWithCookie(url, null, cookies, null);
-        if (result.contains("二维码未失效")){
+        if (result.contains("二维码未失效")) {
             System.out.println("二维码未失效");
+        } else if (result.contains("二维码认证中")) {
+            System.out.println("手机扫码成功");
+        } else if (result.contains("登录成功")) {
+            return true;
         } else if (result.contains("二维码已失效")) {
             System.out.println("二维码已失效， 重新生成");
             InputStream inputStream = getQrCode();
             if (inputStream != null) {
                 imageView.setImage(new Image(inputStream));
             }
-        } else if (result.contains("登录成功")) {
-            return true;
         } else {
             System.out.println(result);
         }
