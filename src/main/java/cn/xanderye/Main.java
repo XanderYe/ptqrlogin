@@ -16,9 +16,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 import org.apache.commons.lang3.StringUtils;
 
-import javax.imageio.stream.FileImageOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,13 +45,11 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        Map<String, String> qrCode = getQrCode();
-        if (qrCode != null) {
-            String qrPath = qrCode.get("qrPath");
-            qrsig = qrCode.get("qrsig");
+        InputStream inputStream = getQrCode();
+        if (inputStream != null) {
             BorderPane root = new BorderPane();
             root.setPadding(new Insets(70, 30, 50, 30));
-            Image image = new Image("file:" + qrPath);
+            Image image = new Image(inputStream);
             ImageView imageView = new ImageView(image);
             imageView.setFitWidth(111);
             imageView.setFitHeight(111);
@@ -80,27 +77,15 @@ public class Main extends Application {
      * @author XanderYe
      * @date 2020-03-14
      */
-    private Map<String, String> getQrCode() {
-        Map<String, String> qrCode = new HashMap<>();
+    private InputStream getQrCode() {
         String t = Double.toString(Math.random());
         String url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=549000912&e=2&l=M&s=3&d=72&v=4&t=" + t + "&daid=5&pt_3rd_aid=0";
         byte[] data = HttpUtil.download(url, null, null);
         if (data != null && data.length > 0) {
             Map<String, String> cookies = HttpUtil.getCookies();
             if (cookies != null) {
-                String qrsig = cookies.get("qrsig");
-                String userPath = System.getProperty("user.dir");
-                String qrPath = userPath + File.separator + "qrcode.png";
-                try {
-                    FileImageOutputStream imageOutput = new FileImageOutputStream(new File(qrPath));
-                    imageOutput.write(data, 0, data.length);
-                    imageOutput.close();
-                    qrCode.put("qrPath", qrPath);
-                    qrCode.put("qrsig", qrsig);
-                    return qrCode;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                qrsig = cookies.get("qrsig");
+                return new ByteArrayInputStream(data);
             }
         }
         return null;
@@ -174,10 +159,9 @@ public class Main extends Application {
             System.out.println("二维码未失效");
         } else if (result.contains("二维码已失效")) {
             System.out.println("二维码已失效， 重新生成");
-            Map<String, String> qrCode = getQrCode();
-            if (qrCode != null) {
-                imageView.setImage(new Image("file:" + qrCode.get("qrPath")));
-                qrsig = qrCode.get("qrsig");
+            InputStream inputStream = getQrCode();
+            if (inputStream != null) {
+                imageView.setImage(new Image(inputStream));
             }
         } else if (result.contains("登录成功")) {
             return true;
