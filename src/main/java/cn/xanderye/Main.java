@@ -1,9 +1,7 @@
 package cn.xanderye;
 
-import cn.xanderye.entity.Friend;
 import cn.xanderye.util.HttpUtil;
 import cn.xanderye.util.QQUtil;
-import cn.xanderye.util.StatisticUtil;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -14,14 +12,11 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -34,10 +29,28 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Main extends Application {
 
-    public final static String UIN = "uin";
-    public final static String SKEY = "skey";
+    /**
+     * 应用ID
+     */
+    private final static String APP_ID = "549000912";
+    private final static String DAID = "5";
+    /**
+     * 来源地址
+     */
+    private final static String U1 = "https://qzs.qq.com/qzone/v5/loginsucc.html?para=izone";
 
     private static String qrsig = "";
+
+    /**
+     * 获取到cookie后需要执行的方法
+     * @param
+     * @return void
+     * @author XanderYe
+     * @date 2020-03-29
+     */
+    private void doSomeThing(Map<String, String> cookies) {
+
+    }
 
     public static void main(String[] args) {
         launch(args);
@@ -79,7 +92,7 @@ public class Main extends Application {
      */
     private InputStream getQrCode() {
         String t = Double.toString(Math.random());
-        String url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=549000912&e=2&l=M&s=3&d=72&v=4&t=" + t + "&daid=5&pt_3rd_aid=0";
+        String url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=" + APP_ID + "&e=2&l=M&s=3&d=72&v=4&t=" + t + "&daid=" + DAID + "&pt_3rd_aid=0";
         byte[] data = HttpUtil.download(url, null, null);
         if (data != null && data.length > 0) {
             Map<String, String> cookies = HttpUtil.getCookies();
@@ -126,13 +139,7 @@ public class Main extends Application {
             if (isLogin.get()) {
                 Map<String, String> cookies = HttpUtil.getCookies();
                 if (cookies != null) {
-                    String uin = cookies.get(UIN);
-                    String skey = cookies.get(SKEY);
-                    if (StringUtils.isEmpty(uin) || StringUtils.isEmpty(skey)) {
-                        System.out.println("cookies获取失败");
-                    } else {
-                        statistic(uin, skey);
-                    }
+                    doSomeThing(cookies);
                 } else {
                     System.out.println("cookies获取失败");
                 }
@@ -152,7 +159,7 @@ public class Main extends Application {
     private boolean loginListener(ImageView imageView) {
         String ptqrtoken = QQUtil.hash33(qrsig);
         String action = "0-1-" + System.currentTimeMillis();
-        String url = "https://ssl.ptlogin2.qq.com/ptqrlogin?u1=https%3A%2F%2Fqzs.qq.com%2Fqzone%2Fv5%2Floginsucc.html%3Fpara%3Dizone&ptqrtoken=" + ptqrtoken + "&ptredirect=0&h=1&t=1&g=1&from_ui=1&ptlang=2052&action=" + action + "&js_ver=20021917&js_type=1&login_sig=&pt_uistyle=40&aid=549000912&daid=5&has_onekey=1";
+        String url = "https://ssl.ptlogin2.qq.com/ptqrlogin?u1=" + U1 + "&ptqrtoken=" + ptqrtoken + "&ptredirect=0&h=1&t=1&g=1&from_ui=1&ptlang=2052&action=" + action + "&js_ver=20021917&js_type=1&login_sig=&pt_uistyle=40&aid=" + APP_ID + "&daid=" + DAID + "&has_onekey=1";
         Map<String, Object> cookies = new HashMap<>();
         cookies.put("qrsig", qrsig);
         String result = HttpUtil.doPostWithCookie(url, null, cookies, null);
@@ -173,42 +180,5 @@ public class Main extends Application {
         }
         return false;
     }
-
-    /**
-     * 统计方法
-     *
-     * @param uin
-     * @param skey
-     * @return void
-     * @author XanderYe
-     * @date 2020-03-14
-     */
-    private void statistic(String uin, String skey) {
-        int type = 1;
-        System.out.print("请输入统计类型（1：好友；2：附近的人）：");
-        Scanner scanner = new Scanner(System.in);
-        String tp = scanner.nextLine();
-        try {
-            int t = Integer.parseInt(tp);
-            if (t == 1 || t == 2) {
-                type = t;
-            }
-        } catch (Exception ignored) {
-        }
-        System.out.println();
-        Map<String, List<Friend>> friendList = StatisticUtil.getModelData(uin, skey, type);
-        StatisticUtil.statistic(friendList);
-        System.out.print("请输入机型查询用户：");
-        while (scanner.hasNext()) {
-            String model = scanner.nextLine();
-            if (StringUtils.isNotEmpty(model)) {
-                System.out.println(StatisticUtil.getFriends(friendList, model));
-            } else {
-                System.out.println("输入错误");
-            }
-            System.out.print("请输入机型查询用户：");
-        }
-    }
-
 
 }
