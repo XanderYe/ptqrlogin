@@ -1,5 +1,7 @@
 package cn.xanderye;
 
+import cn.xanderye.qq.Config;
+import cn.xanderye.qq.QQCookie;
 import cn.xanderye.util.HttpUtil;
 import cn.xanderye.util.QQUtil;
 import javafx.application.Application;
@@ -14,6 +16,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,17 +32,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Main extends Application {
 
-    /**
-     * 应用ID
-     */
-    private final static String APP_ID = "549000912";
-    private final static String DAID = "5";
-    /**
-     * 来源地址
-     */
-    private final static String U1 = "https://qzs.qq.com/qzone/v5/loginsucc.html?para=izone";
-
     private static String qrsig = "";
+
+    private static Map<String, Object> finalCookie = null;
 
     /**
      * 获取到cookie后需要执行的方法
@@ -48,8 +43,15 @@ public class Main extends Application {
      * @author XanderYe
      * @date 2020-03-29
      */
-    private void doSomeThing(Map<String, String> cookies) {
-
+    private void doSomeThing() {
+        String res = null;
+        try {
+            System.out.println(QQCookie.getInstance().toMap().toString());
+            res = HttpUtil.doGet("https://user.qzone.qq.com/315695355", null, QQCookie.getInstance().toMap(), null).getResponse();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println(res);
     }
 
     public static void main(String[] args) {
@@ -80,6 +82,7 @@ public class Main extends Application {
             schedule(primaryStage, imageView);
         } else {
             System.out.println("图片获取失败");
+            System.exit(-1);
         }
     }
 
@@ -91,15 +94,21 @@ public class Main extends Application {
      * @date 2020-03-14
      */
     private InputStream getQrCode() {
+        Config config = Config.getInstance();
         String t = Double.toString(Math.random());
-        String url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=" + APP_ID + "&e=2&l=M&s=3&d=72&v=4&t=" + t + "&daid=" + DAID + "&pt_3rd_aid=0";
-        byte[] data = HttpUtil.download(url, null, null);
-        if (data != null && data.length > 0) {
-            Map<String, String> cookies = HttpUtil.getCookies();
-            if (cookies != null) {
-                qrsig = cookies.get("qrsig");
-                return new ByteArrayInputStream(data);
+        String url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=" + config.getAppId() + "&e=2&l=M&s=3&d=72&v=4&t=" + t + "&daid=" + config.getDaid() + "&pt_3rd_aid=0";
+        try {
+            HttpUtil.ResEntity resEntity = HttpUtil.doDownload(url, null, null, null);
+            byte[] data = resEntity.getBytes();
+            if (data != null && data.length > 0) {
+                Map<String, Object> cookies = resEntity.getCookies();
+                if (cookies != null) {
+                    qrsig = (String) cookies.get("qrsig");
+                    return new ByteArrayInputStream(data);
+                }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return null;
     }
@@ -137,12 +146,12 @@ public class Main extends Application {
             }
             // 判断是否已登录
             if (isLogin.get()) {
-                Map<String, String> cookies = HttpUtil.getCookies();
-                if (cookies != null) {
-                    doSomeThing(cookies);
-                } else {
-                    System.out.println("cookies获取失败");
-                }
+                QQCookie qqCookie = QQCookie.getInstance();
+                qqCookie.setpSkey((String) finalCookie.get("p_skey"));
+                qqCookie.setSkey((String) finalCookie.get("skey"));
+                qqCookie.setpUin((String) finalCookie.get("p_uin"));
+                qqCookie.setUin((String) finalCookie.get("uin"));
+                doSomeThing();
             }
         });
         executorService.shutdown();
@@ -157,26 +166,41 @@ public class Main extends Application {
      * @date 2020-03-14
      */
     private boolean loginListener(ImageView imageView) {
+        Config config = Config.getInstance();
         String ptqrtoken = QQUtil.hash33(qrsig);
         String action = "0-1-" + System.currentTimeMillis();
-        String url = "https://ssl.ptlogin2.qq.com/ptqrlogin?u1=" + U1 + "&ptqrtoken=" + ptqrtoken + "&ptredirect=0&h=1&t=1&g=1&from_ui=1&ptlang=2052&action=" + action + "&js_ver=20021917&js_type=1&login_sig=&pt_uistyle=40&aid=" + APP_ID + "&daid=" + DAID + "&has_onekey=1";
+        String url = "https://ssl.ptlogin2.qq.com/ptqrlogin?u1=" + config.getU1() + "&ptqrtoken=" + ptqrtoken + "&ptredirect=0&h=1&t=1&g=1&from_ui=1&ptlang=2052&action=" + action + "&js_ver=20021917&js_type=1&login_sig=&pt_uistyle=40&aid=" + config.getAppId() + "&daid=" + config.getDaid() + "&has_onekey=1";
         Map<String, Object> cookies = new HashMap<>();
         cookies.put("qrsig", qrsig);
-        String result = HttpUtil.doPostWithCookie(url, null, cookies, null);
-        if (result.contains("二维码未失效")) {
-            System.out.println("二维码未失效");
-        } else if (result.contains("二维码认证中")) {
-            System.out.println("手机扫码成功");
-        } else if (result.contains("登录成功")) {
-            return true;
-        } else if (result.contains("二维码已失效")) {
-            System.out.println("二维码已失效， 重新生成");
-            InputStream inputStream = getQrCode();
-            if (inputStream != null) {
-                imageView.setImage(new Image(inputStream));
+        HttpUtil.ResEntity resEntity = null;
+        try {
+            resEntity = HttpUtil.doPost(url, null, cookies, null);
+            String result = resEntity.getResponse();
+            if (result != null) {
+                if (result.contains("二维码未失效")) {
+                    System.out.println("二维码未失效");
+                } else if (result.contains("二维码认证中")) {
+                    System.out.println("手机扫码成功");
+                } else if (result.contains("登录成功")) {
+                    // 获取p_skey和p_uin
+                    /*String[] res = result.split("'");
+                    String redirectUrl = res[5].trim();
+                    HttpUtil.ResEntity newResEntity = HttpUtil.doGet(redirectUrl, null, resEntity.getCookies(), null);
+                    finalCookie = newResEntity.getCookies();*/
+                    finalCookie = resEntity.getCookies();
+                    return true;
+                } else if (result.contains("二维码已失效")) {
+                    System.out.println("二维码已失效， 重新生成");
+                    InputStream inputStream = getQrCode();
+                    if (inputStream != null) {
+                        imageView.setImage(new Image(inputStream));
+                    }
+                } else {
+                    System.out.println(result);
+                }
             }
-        } else {
-            System.out.println(result);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return false;
     }

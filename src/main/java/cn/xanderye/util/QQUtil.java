@@ -17,4 +17,15 @@ public class QQUtil {
         }
         return String.valueOf(hash & 0x7fffffff);
     }
+
+    public static String uinToQQ(String uin) {
+        int startIndex = 1;
+        for (int i = 1; i < uin.length(); i++) {
+            if (uin.charAt(i) != '0') {
+                break;
+            }
+            startIndex++;
+        }
+        return uin.substring(startIndex);
+    }
 }
