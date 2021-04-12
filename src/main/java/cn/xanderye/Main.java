@@ -44,14 +44,7 @@ public class Main extends Application {
      * @date 2020-03-29
      */
     private void doSomeThing() {
-        String res = null;
-        try {
-            System.out.println(QQCookie.getInstance().toMap().toString());
-            res = HttpUtil.doGet("https://user.qzone.qq.com/315695355", null, QQCookie.getInstance().toMap(), null).getResponse();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        System.out.println(res);
+        // doSomething
     }
 
     public static void main(String[] args) {
